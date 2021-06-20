@@ -17,13 +17,27 @@ load("shiny_input.RData")
 shinyUI(fluidPage(
     
     # App title ----
-    titlePanel("MetaboExtract"),
+    div(
+        titlePanel("MetaboExtract"),
+        style = "
+        position:fixed;
+        width:100%;
+        "
+    ),
     
     # Sidebar layout with input and output definitions ----
     sidebarLayout(
         
         # Sidebar panel for inputs ----
         sidebarPanel(
+            style = "
+            overflow-y: scroll;
+            max-height: 90%;
+            position: fixed;
+            width: 23%;
+            margin-top: 60px;
+            ",
+            
             # Inlcude help text
             checkboxInput(inputId = "help",
                           label = HTML("<b>Show help text</b>")),
@@ -44,6 +58,12 @@ shinyUI(fluidPage(
                            selected = unique(input_df$Class), 
                            multiple = TRUE, 
                            options = NULL),
+            actionButton(inputId = "kit_overview",
+                         label = tags$strong("View classes"),
+                         width = "100%",
+                         style = "color: #fff;
+                         background-color: #337ab7;
+                         border-color: #2e6da4"),
             br(),
             # Select CV
             sliderInput("cv",
@@ -53,10 +73,7 @@ shinyUI(fluidPage(
                         max = signif(max(input_df$CV, na.rm = TRUE), 3) + 0.02),
             br(),
             # Select LOD
-            radioButtons("lod", 
-                         label = h3("Filter based on LOD"), 
-                         choices = list("Yes" = 0, "No" = "dummy"),
-                         selected = c(0)),
+            uiOutput("selectLOD"),
             # Activation button
             br(),
             uiOutput("calcInput"),
@@ -65,6 +82,15 @@ shinyUI(fluidPage(
         
         # Main panel for displaying outputs ----
         mainPanel(
+            style = "
+            overflow-y: scroll;
+            max-height: 90%;
+            position: fixed;
+            width: 75%;
+            margin-left: 25%;
+            margin-top: 60px;
+            ",
+            
             h5("This is a resource to compare different 
                                     extraction methods among four tissues for
                                     intracellular metabolic measurements."),
@@ -72,7 +98,7 @@ shinyUI(fluidPage(
                                     extraction methods for intracellular 
                                     metabolomics"),
             br(),
-            HTML('<b>Click Show help text for more information.</b><br>'),
+            HTML("<b>Click Show help text for more information.</b><br>"),
             br(),
             # Output: Tabset w/ plot, summary, and table ----
             tabsetPanel(type = "tabs",
@@ -99,38 +125,69 @@ shinyUI(fluidPage(
                                      withSpinner(color="#428bca"),
                                  h4("Variability of CVs"),
                                  plotlyOutput("plot6", width = "70%") %>%
-                                     withSpinner(color="#428bca"),
-                                 h5("Sum of metabolites for best extraction 
-                                    method stratified by class."),
-                                 plotlyOutput("plot2b") %>%
                                      withSpinner(color="#428bca")),
-                        tabPanel("Concentration", 
+                        tabPanel("Concentration",
+                                 br(),
                                  h2("Concentration comparison between methods"),
-                                 plotlyOutput("plot8", height = "800px") %>%
-                                     withSpinner(color="#428bca"),
-                                 uiOutput("plot_numbers"),
-                                 actionButton(inputId = "previous6",
-                                              label = tags$strong("Previous 6"),
-                                              width = "140px", 
-                                              style="color: #fff;
-                                        background-color: #337ab7; 
-                                        border-color: #2e6da4"),
-                                 actionButton(inputId = "next6",
-                                              label = tags$strong("Next 6"),
-                                              width = "140px", 
-                                              style="color: #fff; 
-                                        background-color: #337ab7; 
-                                        border-color: #2e6da4")),
+                                 uiOutput("help.text_conc"),
+                                 br(),
+                                 column(width = 12, tabsetPanel(
+                                     type = "tabs",
+                                     id = "sub_tabs",
+                                     tabPanel("Overview", fluidRow(
+                                         h4("Number of optimal extracted metabolites
+                                            across extraction methods and stratified
+                                            by class."),
+                                         plotlyOutput("plot2b") %>%
+                                             withSpinner(color="#428bca")
+                                     )),
+                                     tabPanel("Single view", fluidRow(
+                                         h4("Concentrations of single metabolites
+                                            measured across extraction methods."),
+                                         column(
+                                             width = 3,
+                                             style = "margin-top: 10px;",
+                                             actionButton(inputId = "previous6",
+                                                          label = tags$strong("Previous 6"),
+                                                          width = "100%",
+                                                          style = "color: #fff;
+                                                  background-color: #337ab7;
+                                                  border-color: #2e6da4")
+                                         ),
+                                         column(
+                                             width = 3,
+                                             style = "margin-top: 10px;",
+                                             actionButton(inputId = "next6",
+                                                          label = tags$strong("Next 6"),
+                                                          width = "100%",
+                                                          style = "color: #fff;
+                                                  background-color: #337ab7;
+                                                  border-color: #2e6da4")
+                                         ),
+                                         column(
+                                             width = 6,
+                                             uiOutput("plot_numbers")
+                                         ),
+                                         column(
+                                             width = 12,
+                                             br()
+                                         ),
+                                         column(
+                                             width = 12,
+                                             uiOutput("plotlyUI")
+                                         )
+                                     ))
+                                 ))),
                         tabPanel("Spectra", 
                                  h2("Spectra of concentrations"),
-                                 h5("Concentrations measured across tissue types
+                                 h4("Concentrations measured across tissue types
                                     and methods."),
                                  uiOutput("help.text_spec_1"),
                                  plotOutput("plot4", height = "1000px") %>%
                                      withSpinner(color="#428bca")),
                         tabPanel("Replicates", 
                                  h2("Comparison of Replicates"),
-                                 h5("Sum of concentrations show global differences 
+                                 h4("Sum of concentrations show global differences 
                                     between replicates"),
                                  uiOutput("help.text_rep_1"),
                                  plotOutput("plot7", width = "60%") %>%
@@ -139,19 +196,21 @@ shinyUI(fluidPage(
                                  dataTableOutput("rep_table") %>%
                                      withSpinner(color="#428bca")),
                         tabPanel("Table", 
-                                 h5("Metabolite concentrations are either given  
-                                    as pmol/10^6 cells or pmol/mg."),
+                                 HTML("<h4>Metabolite concentrations are either
+                                      given as pmol/10<sup>6</sup> cells or
+                                      pmol/mg.</h4>"),
                                  uiOutput("help.text_table_1"),
+                                 br(),
                                  dataTableOutput("table") %>%
                                      withSpinner(color="#428bca")),
                         tabPanel("Kit Overview", 
                                  h2("Classes of Metabolites in Kit"),
-                                 h5("The Biocrates MxP 500 Quant Kit can quantify 
+                                 h4("The Biocrates MxP 500 Quant Kit can quantify 
                                     up to 630 metabolites of different classes."),
                                  plotOutput("plot") %>%
                                      withSpinner(color="#428bca"),
                                  h2("Table"),
-                                 h5("List of all metabolites covered."),
+                                 h4("List of all metabolites covered."),
                                  dataTableOutput("metaboliteclasses") %>%
                                      withSpinner(color="#428bca"))
             )

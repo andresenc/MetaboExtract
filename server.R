@@ -1,6 +1,6 @@
 load("shiny_input.RData")
 
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
     # define default selection
     rv <- reactiveValues(
         # for tab "Metabolites" and others
@@ -16,8 +16,22 @@ shinyServer(function(input, output) {
     
 # Sidebar input
 ################################################################################
-    observeEvent(input$tabs, {
+    observeEvent(c(input$tabs, input$sub_tabs), {
         if (input$tabs == "Concentration") {
+            # Select LOD is disabled for tab "Concentration"
+            output$selectLOD <- NULL
+        } else {
+            # Select LOD
+            output$selectLOD <- renderUI({
+                radioButtons("lod", 
+                             label = h3("Filter based on LOD"), 
+                             choices = list("Yes" = 0, "No" = "dummy"),
+                             selected = c(0))
+            })
+        }
+        if (input$tabs == "Concentration" & input$sub_tabs == "Single view") {
+            ## input: tissue, method, bestPerformance, applyFilters2 ##
+            
             # Single tissue
             output$tissuesInput <- renderUI({
                 radioButtons("tissue",
@@ -31,7 +45,7 @@ shinyServer(function(input, output) {
             # Single method
             output$methodsInput <- renderUI({
                 selectizeInput("method",
-                               label = h3("Select methods"),
+                               label = h3("Select method"),
                                choices = unique(input_df$Methods),
                                selected = rv$selected.method, 
                                multiple = FALSE, 
@@ -48,6 +62,8 @@ shinyServer(function(input, output) {
             # Action button ID
             actionID <- "applyFilters2"
         } else {
+            ## input: tissues, methods, applyFilters ##
+            
             # Multiple tissues
             output$tissuesInput <- renderUI({
                 checkboxGroupInput("tissues",
@@ -76,11 +92,16 @@ shinyServer(function(input, output) {
         output$calcInput <- renderUI({
             actionButton(inputId = actionID,
                          label = tags$strong("Apply filters"),
-                         width = "140px", 
-                         style="color: #fff; 
-                   background-color: #337ab7; 
-                   border-color: #2e6da4")
+                         width = "100%", 
+                         style="color: #fff;
+                         background-color: #337ab7; 
+                         border-color: #2e6da4")
         })
+    })
+    
+    # Show Kit Overview
+    observeEvent(input$kit_overview, {
+        updateTabsetPanel(session, "tabs", selected = "Kit Overview")
     })
     
     # Action buttons counter will be reset to 0 each time they are newly rendered 
@@ -94,28 +115,22 @@ shinyServer(function(input, output) {
     })
     # trigger initial calculation after reactive UI has been rendered
     observe({
-        req(input$methods)
-        req(input$tissues)
+        req(input$tissues, input$methods)
         rv$initial.calc1 <- 1
     })
     observe({
-        req(input$method)
-        req(input$tissue)
-        req(input$bestPerformance)
+        req(input$tissue, input$method, input$bestPerformance)
         rv$initial.calc2 <- 1
     })
     
     # save selection for different tabs
     observeEvent(rv$go1, {
-        req(input$methods)
-        req(input$tissues)
+        req(input$tissues, input$methods)
         rv$selected.methods <- input$methods
         rv$selected.tissues <- input$tissues
     })
     observeEvent(rv$go2, {
-        req(input$method)
-        req(input$tissue)
-        req(input$bestPerformance)
+        req(input$tissue, input$method, input$bestPerformance)
         rv$selected.method <- input$method
         rv$selected.tissue <- input$tissue
         rv$selected.performance <- input$bestPerformance
@@ -130,7 +145,7 @@ shinyServer(function(input, output) {
                     fluidRow(
                         column(
                             width = 12,
-                            HTML('This ShinyApp allows to explore ten extraction 
+                            HTML("This ShinyApp allows to explore ten extraction 
                                  methods for metabolic measurements of four 
                                  human tissues or cell lines (liver, bone 
                                  marrow, HEK and HL-60) using the Biocrates MxP 
@@ -144,9 +159,9 @@ shinyServer(function(input, output) {
                                  Additionally, values below the limit of 
                                  detection (LOD) can be included. Though it is 
                                  highly recommended to use the LOD for 
-                                 filtering.<br><br>'),
-                            # HTML('<p><img src="Extraction.png"/></p><br><br>'),
-                            HTML('<b>Overview:</b><br><br>'),
+                                 filtering.<br><br>"),
+                            # HTML("<p><img src="Extraction.png"/></p><br><br>"),
+                            HTML("<b>Overview:</b><br><br>"),
                             renderTable(data.frame("Tab" = c("Statistics", 
                                                              "Concentration", 
                                                              "Spectra", 
@@ -229,7 +244,32 @@ shinyServer(function(input, output) {
                     fluidRow(
                         column(
                             width = 12,
-                            HTML("Choose option to download table.<br><br>")
+                            HTML("Choose option to download table.")
+                        )
+                    )
+                )
+            }
+        })
+        output$help.text_conc <- renderUI({
+            if (input$help) {
+                return(
+                    fluidRow(
+                        column(
+                            width = 12,
+                            HTML("Optimal extraction methods were determined for
+                                 each metabolite based on the measured concentration.
+                                 The method with the highest median yield was
+                                 considered optimal. This method is labeled with an
+                                 &quot;A&quot; (refer to &quot;Single view&quot;).
+                                 Other methods with non-significantly lower
+                                 concentrations were also taken into account and
+                                 given an &quot;A&quot; in their labeling among
+                                 other letters. All other methods were considered
+                                 non-optimal and labeled with consecutive letters.
+                                 <br><br>Note: LOD filtering is disabled for this
+                                 tab since statistical analysis could not be
+                                 performed for metabolites where all methods were
+                                 in the LOD range.")
                         )
                     )
                 )
@@ -241,7 +281,8 @@ shinyServer(function(input, output) {
 
 # Pie chart
 ################################################################################
-    pie_table_df <- eventReactive(rv$go1, {
+    
+    pie_table_df <- eventReactive(c(rv$go1, input$kit_overview[1]), {
         temp_pie_df <- anno_row_df[anno_row_df$Class %in% input$class, ] %>%
             droplevels() %>%
             dplyr::select(c(Metabolite, Name, Class))
@@ -272,8 +313,7 @@ shinyServer(function(input, output) {
 # Filter input 
 ################################################################################
     filtered_input_df <- eventReactive(c(rv$initial.calc1, rv$go1), {
-        req(input$methods)
-        req(input$tissues)
+        req(input$tissues, input$methods)
         temp_input_df <- input_df %>%
             filter(LOD != input$lod,
                    CV <= input$cv,
@@ -286,8 +326,7 @@ shinyServer(function(input, output) {
 # Prep raw data table
 ################################################################################
     filtered_table_df <- eventReactive(c(rv$initial.calc1, rv$go1), {
-        req(input$methods)
-        req(input$tissues)
+        req(input$tissues, input$methods)
         if(input$cv == 1.75){
             temp_input_df <- table_df %>%
                 filter(LOD != input$lod,
@@ -338,7 +377,8 @@ shinyServer(function(input, output) {
 ################################################################################
     bar2_input_df <- reactive({
         temp_input_df <- filtered_input_df() %>%
-            filter(!is.na(Group)) %>%
+            filter(LOD != 0,
+                   !is.na(Group)) %>%
             droplevels() %>%
             group_by(Methods, Class, Tissue) %>%
             dplyr::summarise(Number = length(grep("A", Group))) %>%
@@ -363,10 +403,11 @@ shinyServer(function(input, output) {
 # Concentration Boxplots
 ################################################################################
     observeEvent(c(rv$initial.calc2, rv$go2), {
-        req(input$tissue)
-        req(input$method)
-        req(input$bestPerformance)
+        req(input$tissue, input$method, input$bestPerformance)
         rv$plot_index <- 1 # refresh index for new input
+        rv$ylab <- ifelse(input$tissue == "Liver",
+                          "Concentration [pmol/mg tissue]",
+                          "Concentration [pmol/10^6 cells]")
         temp_input_df <- input_df %>%
             filter(LOD != input$lod,
                    CV <= input$cv,
@@ -438,9 +479,34 @@ shinyServer(function(input, output) {
         if (rv$e > rv$max_len) {
             rv$e <- rv$max_len
         }
+        if (rv$e - rv$s == 0) {
+            # only 1 plot
+            rv$width <- "60%"
+            rv$ncol <- 1
+        } else {
+            rv$width <- "100%"
+            rv$ncol <- 2
+        }
+        rv$nrow <- ceiling((rv$e-rv$s+1) / 2)
+        rv$height <- paste0(160 + rv$nrow * 180, "px")
+        
         out <- filter(rv$box_input_df,
                       Metabolite %in% unique(rv$box_input_df$Metabolite)[rv$s:rv$e])
         return(out)
+    })
+    
+    output$plot_numbers <- renderUI({
+        req(rv$s, rv$e, rv$max_len)
+        if (rv$s < rv$e) {
+            return(HTML(paste("<h5>Showing plots<b>", rv$s, "</b>to<b>", rv$e,
+                              "</b><br>The total number of plots is<b>",
+                              rv$max_len, "</b></h5>")))
+        } else {
+            return(HTML(paste("<h5>Showing plot<b>", rv$s,
+                              "</b><br>The total number of plots is<b>",
+                              rv$max_len, "</b></h5>")))
+        }
+        
     })
     
     output$plot8 <- renderPlotly({
@@ -459,22 +525,20 @@ shinyServer(function(input, output) {
                            theme(legend.position = "bottom",
                                  axis.text.x = element_text(angle = 45,
                                                             hjust = 1,
-                                                            size = 8)) +
+                                                            size = 8),
+                                 plot.margin = unit(c(0, 5, 0, 20), "pt")) +
                            xlab("") +
-                           ylab("Concentration") +
-                           facet_wrap(~ Metabolite, nrow = 3, scales="free_y"),
+                           ylab(rv$ylab) +
+                           facet_wrap(~ Metabolite, scales="free_y",
+                                      nrow = rv$nrow, ncol = rv$ncol),
                        tooltip = "text") %>%
                   style(hoverinfo = "none", traces = 1))
     })
     
-    output$plot_numbers <- renderUI({
-        req(rv$s)
-        req(rv$e)
-        req(rv$max_len)
-        return(HTML(paste("<b>Showing plot", rv$s, "to", rv$e,
-                          "<br>Total number of plots:", rv$max_len, "</b>")))
+    output$plotlyUI <- renderUI({
+        plotlyOutput("plot8", height = rv$height, width = rv$width) %>%
+            withSpinner(color="#428bca")
     })
-    
     
 # CV plot
 ################################################################################
@@ -589,19 +653,35 @@ shinyServer(function(input, output) {
     })
     
     # Metabolites in classes
-    output$metaboliteclasses <- DT::renderDataTable({
-        pie_table_df()
-    })
+    output$metaboliteclasses <- DT::renderDataTable(
+        pie_table_df(),
+        server = FALSE,
+        selection = "none",
+        options = list(dom = "Blfrtip",
+                       buttons = c("copy", "excel", "pdf")),
+        extensions = "Buttons"
+    )
     
     # Replicate table
-    output$rep_table <- DT::renderDataTable({
-        rep_input_df()
-    })
+    output$rep_table <- DT::renderDataTable(
+        rep_input_df(),
+        rownames= FALSE,
+        server = FALSE,
+        selection = "none",
+        options = list(dom = "Blfrtip",
+                       buttons = c("copy", "excel", "pdf")),
+        extensions = "Buttons"
+    )
     
     # Generate a summary of the data ----
-    output$table <- DT::renderDataTable(datatable(
-        filtered_table_df(), rownames= FALSE
-    ))
-    
+    output$table <- DT::renderDataTable(
+        filtered_table_df(),
+        rownames= FALSE,
+        server = FALSE,
+        selection = "none",
+        options = list(pageLength = 25,
+                       dom = "Blfrtip",
+                       buttons = c("copy", "excel", "pdf")),
+        extensions = "Buttons"
+    )
 })
-
