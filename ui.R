@@ -181,7 +181,7 @@ shinyUI(fluidPage(
                         tabPanel("Spectra", 
                                  h2("Spectra of concentrations"),
                                  h4("Concentrations measured across tissue types
-                                    and methods."),
+                                    and methods"),
                                  uiOutput("help.text_spec_1"),
                                  plotOutput("plot4", height = "1000px") %>%
                                      withSpinner(color="#428bca")),
@@ -197,8 +197,9 @@ shinyUI(fluidPage(
                                      withSpinner(color="#428bca")),
                         tabPanel("Table", 
                                  HTML("<h4>Metabolite concentrations are either
-                                      given as pmol/10<sup>6</sup> cells or
-                                      pmol/mg.</h4>"),
+                                      given as pmol/10<sup>6</sup> cells (HEK, 
+                                      HL-60 and bone marrow) or pmol/mg (liver).
+                                      </h4>"),
                                  uiOutput("help.text_table_1"),
                                  br(),
                                  dataTableOutput("table") %>%

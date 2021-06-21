@@ -219,7 +219,9 @@ shinyServer(function(input, output, session) {
                         column(
                             width = 12,
                             HTML("Note: concentrations are displayed in log 
-                                 scale.")
+                                 scale. Concentrations are either
+                                 given as pmol/10<sup>6</sup> cells (HEK, 
+                                 HL-60 and bone marrow) or pmol/mg (liver).")
                         )
                     )
                 )
@@ -564,7 +566,7 @@ shinyServer(function(input, output, session) {
             theme_bw() +
             scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                           labels = trans_format("log10", math_format(10^.x))) +
-            ylab("Mean Concentration [pmol/mg] or [pmol/10^6 cells]") +
+            ylab(expression(paste("Mean Concentration [pmol/mg] or [pmol/", 10^6, " cells]"))) +
             theme(axis.text.x = element_blank(), 
                   axis.ticks.length.x = unit(0, "cm"),
                   panel.grid.major= element_line(color = "white"), 
