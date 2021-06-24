@@ -59,11 +59,11 @@ shinyUI(fluidPage(
                            multiple = TRUE, 
                            options = NULL),
             actionButton(inputId = "kit_overview",
-                         label = tags$strong("View classes"),
+                         label = "View classes",
                          width = "100%",
-                         style = "color: #fff;
-                         background-color: #337ab7;
-                         border-color: #2e6da4"),
+                         style = "color: #333333;
+                         background-color: #E2E3E5;
+                         border-color: #CCCBCD"),
             br(),
             # Select CV
             sliderInput("cv",
