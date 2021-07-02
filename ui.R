@@ -94,7 +94,7 @@ shinyUI(fluidPage(
             h5("This is a resource to compare different 
                                     extraction methods among four tissues for
                                     intracellular metabolic measurements."),
-            h5("Reference: xxx et al. (2021) Comparison of 
+            h5("Reference: Andresen et al. (2021) Comparison of 
                                     extraction methods for intracellular 
                                     metabolomics"),
             br(),
