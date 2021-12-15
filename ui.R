@@ -98,7 +98,7 @@ shinyUI(fluidPage(
                                     extraction methods for intracellular 
                                     metabolomics"),
             br(),
-            HTML("<b>Click Show help text for more information.</b><br>"),
+            HTML("<b>Click \"Show help text\" for more information.</b><br>"),
             br(),
             # Output: Tabset w/ plot, summary, and table ----
             tabsetPanel(type = "tabs",
