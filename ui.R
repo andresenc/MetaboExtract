@@ -13,6 +13,7 @@ options(dplyr.summarise.inform = FALSE)
 
 load("shiny_input.RData")
 
+
 # Define UI for random distribution app ----
 shinyUI(fluidPage(
     
@@ -42,6 +43,15 @@ shinyUI(fluidPage(
             checkboxInput(inputId = "help",
                           label = HTML("<b>Show help text</b>")),
             
+            # Input: Select data set
+            radioButtons("data_set", 
+                         label = h3("Select data set"),
+                         choiceNames = list(HTML("Andresen <i>et al.</i>"),
+                                            HTML("Gegner <i>et al.</i>")),
+                         choiceValues = list("cells", "organisms"),
+                         selected = c("cells")),
+            br(),
+            
             # Input: Select tissues
             uiOutput("tissuesInput"),
             br(),
@@ -54,8 +64,8 @@ shinyUI(fluidPage(
             # Input: Select metabolite class
             selectizeInput("class", 
                            label = h3("Select class"), 
-                           choices = unique(input_df$Class),
-                           selected = unique(input_df$Class), 
+                           choices = unique(input_df_cells$Class),
+                           selected = unique(input_df_cells$Class), 
                            multiple = TRUE, 
                            options = NULL),
             actionButton(inputId = "kit_overview",
@@ -66,11 +76,7 @@ shinyUI(fluidPage(
                          border-color: #CCCBCD"),
             br(),
             # Select CV
-            sliderInput("cv",
-                        h3("Select CV limit"),
-                        value = 0.5,
-                        min = 0,
-                        max = signif(max(input_df$CV, na.rm = TRUE), 3) + 0.02),
+            uiOutput("selectCV"),
             br(),
             # Select LOD
             uiOutput("selectLOD"),
@@ -94,38 +100,40 @@ shinyUI(fluidPage(
             h5("This is a resource to compare different 
                                     extraction methods among four tissues for
                                     intracellular metabolic measurements."),
-            h5("Reference: Andresen et al. (2021) Comparison of 
+            HTML("<h5>Reference: Andresen <i>et al.</i> (2021) Comparison of 
                                     extraction methods for intracellular 
-                                    metabolomics"),
+                                    metabolomics</h5>"),
             br(),
             HTML("<b>Click \"Show help text\" for more information.</b><br>"),
             br(),
             # Output: Tabset w/ plot, summary, and table ----
             tabsetPanel(type = "tabs",
                         id = "tabs",
+                        # Tab: Statistics ----
                         tabPanel("Statistics",
                                  br(),
                                  uiOutput("help.text_met"),
                                  h2("Number of detectable metabolites"),
                                  h4("Number of metabolites across extraction 
-                                    methods and stratified by class"), 
+                                    methods and stratified by class"),
                                  uiOutput("help.text_stat_1"),
-                                 plotlyOutput("plot2") %>%
+                                 plotlyOutput("detec_metabo") %>%
                                      withSpinner(color="#428bca"), # loading spinner
-                                 h4("Number of metabolites across extraction 
-                                    methods and stratified by tissue"), 
+                                 h4("Number of metabolites across extraction
+                                    methods and stratified by tissue"),
                                  uiOutput("help.text_stat_2"),
-                                 plotlyOutput("plot5", width = "70%") %>%
+                                 plotlyOutput("sum_detec_metabo", width = "70%") %>%
                                      withSpinner(color="#428bca"),
                                  h2("Coefficient of Variation (CV)"),
-                                 h4("Distribution of CVs from technical 
+                                 h4("Distribution of CVs from technical
                                     triplicates."),
-                                 plotlyOutput("plot3", width = "70%", 
+                                 plotlyOutput("CV_dist", width = "70%",
                                               height = "120%") %>%
                                      withSpinner(color="#428bca"),
                                  h4("Variability of CVs"),
-                                 plotlyOutput("plot6", width = "70%") %>%
+                                 plotlyOutput("var_CV", width = "70%") %>%
                                      withSpinner(color="#428bca")),
+                        # Tab: Concentration ----
                         tabPanel("Concentration",
                                  br(),
                                  h2("Concentration comparison between methods"),
@@ -135,10 +143,10 @@ shinyUI(fluidPage(
                                      type = "tabs",
                                      id = "sub_tabs",
                                      tabPanel("Overview", fluidRow(
-                                         h4("Number of optimal extracted metabolites
+                                         h4("Number of metabolites with the highest yield
                                             across extraction methods and stratified
                                             by class."),
-                                         plotlyOutput("plot2b") %>%
+                                         plotlyOutput("bar_high_yield") %>%
                                              withSpinner(color="#428bca")
                                      )),
                                      tabPanel("Single view", fluidRow(
@@ -174,45 +182,46 @@ shinyUI(fluidPage(
                                          ),
                                          column(
                                              width = 12,
-                                             uiOutput("plotlyUI")
+                                             uiOutput("box_plots_UI")
                                          )
                                      ))
                                  ))),
-                        tabPanel("Spectra", 
+                        # Tab: Spectra ----
+                        tabPanel("Spectra",
                                  h2("Spectra of concentrations"),
                                  h4("Concentrations measured across tissue types
                                     and methods"),
                                  uiOutput("help.text_spec_1"),
-                                 plotOutput("plot4", height = "1000px") %>%
+                                 plotOutput("spectra", height = "1000px") %>%
                                      withSpinner(color="#428bca")),
-                        tabPanel("Replicates", 
+                        # Tab: Replicates ----
+                        tabPanel("Replicates",
                                  h2("Comparison of Replicates"),
-                                 h4("Sum of concentrations show global differences 
+                                 h4("Sum of concentrations show global differences
                                     between replicates"),
                                  uiOutput("help.text_rep_1"),
-                                 plotOutput("plot7", width = "60%") %>%
+                                 plotOutput("bar_replicates", width = "60%") %>%
                                      withSpinner(color="#428bca"),
                                  h2("Table"),
                                  dataTableOutput("rep_table") %>%
                                      withSpinner(color="#428bca")),
-                        tabPanel("Table", 
-                                 HTML("<h4>Metabolite concentrations are either
-                                      given as pmol/10<sup>6</sup> cells (HEK, 
-                                      HL-60 and bone marrow) or pmol/mg (liver).
-                                      </h4>"),
+                        # Tab: Table ----
+                        tabPanel("Table",
+                                 uiOutput("table_title"),
                                  uiOutput("help.text_table_1"),
                                  br(),
-                                 dataTableOutput("table") %>%
+                                 dataTableOutput("data_sum_table") %>%
                                      withSpinner(color="#428bca")),
-                        tabPanel("Kit Overview", 
+                        # Tab: Kit Overview ----
+                        tabPanel("Kit Overview",
                                  h2("Classes of Metabolites in Kit"),
-                                 h4("The Biocrates MxP 500 Quant Kit can quantify 
+                                 h4("The Biocrates MxP 500 Quant Kit can quantify
                                     up to 630 metabolites of different classes."),
-                                 plotOutput("plot") %>%
+                                 plotOutput("pie_chart") %>%
                                      withSpinner(color="#428bca"),
                                  h2("Table"),
                                  h4("List of all metabolites covered."),
-                                 dataTableOutput("metaboliteclasses") %>%
+                                 dataTableOutput("metabolite_classes") %>%
                                      withSpinner(color="#428bca"))
             )
         )
