@@ -7,7 +7,7 @@ shinyServer(function(input, output, session) {
         go1 = 0,
         # for tab "Kit Overview"
         go2 = 0,
-        selected.performance = TRUE
+        selected.performance = FALSE
     )
 
 
@@ -569,8 +569,10 @@ shinyServer(function(input, output, session) {
         } else {
             plot_data <- temp_conc_df %>%
                 filter(Metabolite %in% metabolites) %>%
+                group_by(Metabolite, Method) %>%
+                mutate(LabelPos = max(Concentration)) %>%
                 group_by(Metabolite) %>%
-                mutate(LabelPos = 1.1*max(Concentration)) %>%
+                mutate(LabelPos = LabelPos + 0.1*max(Concentration)) %>%
                 select(Metabolite, Method, Methods, Concentration, Group, LabelPos)
             
             rv$max_len <- length(unique(plot_data$Metabolite))
@@ -770,9 +772,10 @@ shinyServer(function(input, output, session) {
                        Class %in% input$class) %>%
                 droplevels()
         }
-        temp_input_df <- dplyr::select(temp_input_df, c(Metabolite, Method,
-                                                        Tissue, Class, Replicate,
-                                                        Concentration, Sum))
+        temp_input_df <- temp_input_df %>%
+            dplyr::select(c(Tissue, Method, Class, Metabolite,
+                            Replicate, Concentration, Sum)) %>%
+            arrange(Tissue, Method, Class, Metabolite, Replicate)
 
         temp_input_df})
     
