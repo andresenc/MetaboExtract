@@ -395,6 +395,8 @@ shinyServer(function(input, output, session) {
                                  given an &quot;A&quot; in their labeling among
                                  other letters. All other methods were considered
                                  non-optimal and labeled with consecutive letters.
+                                 The dotted line shows the number of detectable
+                                 metabolites for each sample type.
                                  <br><br>Note: LOD filtering is disabled for this
                                  tab since it is already included in the
                                  statistical analysis. Metabolites where values of
@@ -458,8 +460,8 @@ shinyServer(function(input, output, session) {
         tmp_df <- filtered_input_df() %>%
             group_by(Tissue, Methods) %>%
             dplyr::summarise(Number_Metabolites = n(),
-                      Median_CV = median(CV, na.rm = TRUE),
-                      MAD_CV = mad(CV, na.rm = TRUE)) %>%
+                             Median_CV = median(CV, na.rm = TRUE),
+                             MAD_CV = mad(CV, na.rm = TRUE)) %>%
             data.frame()
         tmp_df
     })
@@ -497,12 +499,12 @@ shinyServer(function(input, output, session) {
                            geom_bar(aes(fill = Tissue),
                                     position = "dodge",
                                     stat = "identity") +
-                           # geom_errorbar(aes(ymin = Median_CV,
-                           #                   ymax = Median_CV+MAD_CV,
-                           #                   group = Tissue),
-                           #               width = .2,
-                           #               position = position_dodge(.9),
-                           #               col = "black") +
+                           geom_errorbar(aes(ymin = Median_CV,
+                                             ymax = Median_CV+MAD_CV,
+                                             group = Tissue),
+                                         width = .2,
+                                         position = position_dodge(.9),
+                                         col = "black") +
                            xlab("") +
                            ylab("Median CV + MAD") +
                            theme_light() +
@@ -524,11 +526,20 @@ shinyServer(function(input, output, session) {
             data.frame()
         temp_input_df
     })
+    
+    max_metabolites <- reactive({
+        filtered_input_df() %>%
+            filter(!is.na(Group)) %>%
+            group_by(Tissue) %>%
+            summarise(max = length(unique(Metabolite)))
+    })
 
     output$bar_high_yield <- renderPlotly({
         print(ggplotly(ggplot(high_yield_df(),
                               aes(x = Methods, y = Number, fill = Class)) +
                            geom_bar(stat = "identity") +
+                           geom_hline(data=max_metabolites(),
+                                      aes(yintercept=max), linetype = 2) +
                            scale_fill_manual(values = col_vector_classes) +
                            theme_light() +
                            theme(legend.position = "bottom",
