@@ -198,6 +198,7 @@ shinyServer(function(input, output, session) {
         })
     })
     
+
 # UI: Sidebar input depending on dataset ----------------------------------
 
 # Reactive:
@@ -214,6 +215,7 @@ shinyServer(function(input, output, session) {
         })
     })
 
+    
 # UI: Show Kit Overview ---------------------------------------------------
 
 # Reactive:
@@ -223,7 +225,6 @@ shinyServer(function(input, output, session) {
         updateTabsetPanel(session, "tabs", selected = "Kit Overview")
     })
     
-
 
 # Reactive: Trigger reactive calculation ----------------------------------
 
@@ -246,7 +247,6 @@ shinyServer(function(input, output, session) {
         rv$initial.calc2 <- 1
     })
     
-
 
 # UI: Save selection for different tabs -----------------------------------
     
@@ -411,26 +411,27 @@ shinyServer(function(input, output, session) {
     })
     
     
-
-
-
 # Data: Filter input_df ---------------------------------------------------
 
 # Reactive:
 #   rv$initial.calc1
 #   rv$go1
     
-    filtered_input_df <- eventReactive(c(rv$initial.calc1, rv$go1), {
+    prefiltered_input_df <- eventReactive(c(rv$initial.calc1, rv$go1), {
         req(input$tissues, input$methods)
         temp_input_df <- rv$input_df %>%
-            filter(LOD != input$lod,
-                   CV <= input$cv,
+            filter(CV <= input$cv,
                    Tissue %in% input$tissues,
                    Methods %in% input$methods,
                    Class %in% input$class) %>%
             droplevels()
         temp_input_df
     })
+    
+    filtered_input_df <- reactive({
+        filter(prefiltered_input_df(), LOD != input$lod)
+    })
+
 
 # Tab: Statistics ---------------------------------------------------------
 
@@ -514,11 +515,12 @@ shinyServer(function(input, output, session) {
                            scale_fill_manual(values = rv$col_vector_tissue)))
     })
 
+
 # Tab: Concentration ------------------------------------------------------
 
     # Barplot showing number of metabolites for best extraction method
     high_yield_df <- reactive({
-        temp_input_df <- filtered_input_df() %>%
+        temp_input_df <- prefiltered_input_df() %>%
             filter(!is.na(Group)) %>%
             droplevels() %>%
             group_by(Methods, Class, Tissue) %>%
@@ -528,7 +530,7 @@ shinyServer(function(input, output, session) {
     })
     
     max_metabolites <- reactive({
-        filtered_input_df() %>%
+        prefiltered_input_df() %>%
             filter(!is.na(Group)) %>%
             group_by(Tissue) %>%
             summarise(max = length(unique(Metabolite)))
@@ -682,6 +684,7 @@ shinyServer(function(input, output, session) {
             withSpinner(color="#428bca")
     })
 
+    
 # Tab: Spectra ------------------------------------------------------------
 
     y_lab <- eventReactive(c(rv$initial.calc1, rv$go1), {
@@ -708,6 +711,7 @@ shinyServer(function(input, output, session) {
                   legend.position = "bottom")
     })
 
+    
 # Tab: Replicates ---------------------------------------------------------
     rep_input_df <- reactive({
         temp_input_df <- filtered_table_df() %>%
@@ -745,6 +749,7 @@ shinyServer(function(input, output, session) {
         extensions = "Buttons"
     )
 
+    
 # Tab: Tables -------------------------------------------------------------
 
     observeEvent(c(rv$initial.calc1, rv$go1), {
@@ -802,6 +807,7 @@ shinyServer(function(input, output, session) {
         extensions = "Buttons"
     )
 
+    
 # Tab: Kit Overview -------------------------------------------------------
     
     ## Pie chart metabolite overview
